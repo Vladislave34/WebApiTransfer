@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Domain;
+using Domain.Entities.Locations;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +28,34 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+using (var scoped = app.Services.CreateScope())
+{
+    var db = scoped.ServiceProvider.GetRequiredService<AppDbTransferContext>();
 
+    if (!db.Countries.Any())
+    {
+        var jsonPath = Path.Combine(
+            app.Environment.ContentRootPath,
+            "..",
+            "Domain",
+            "countries.json"
+        );
+
+        jsonPath = Path.GetFullPath(jsonPath);
+
+        var json = await File.ReadAllTextAsync(jsonPath);
+
+        var countries = JsonSerializer.Deserialize<List<CountryEntity>>(
+            json,
+            new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+        db.Countries.AddRange(countries);
+        await db.SaveChangesAsync();
+    }
+}
 
 
 app.Run();
